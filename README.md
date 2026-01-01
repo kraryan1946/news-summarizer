@@ -101,7 +101,7 @@ Deployment to Streamlit Cloud or HuggingFace Spaces
 ## 👤 Author
 
 Kraryan
-GitHub: https://github.com/kraryan1946
+GitHub: https://github.com/witharyank
 
 ## ⭐ Support the Project
 
