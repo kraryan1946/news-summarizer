@@ -1,8 +1,10 @@
-import streamlit as st
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-import torch
-import time
 import base64
+import time
+
+import streamlit as st
+import torch
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+
 
 @st.cache_resource
 def load_model():
