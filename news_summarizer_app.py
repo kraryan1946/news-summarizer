@@ -1,5 +1,6 @@
-import base64
 import time
+import base64
+
 
 import streamlit as st
 import torch
