@@ -36,7 +36,7 @@ length_map = {
 st.divider()
 
 # --- Text input ---
-article = st.text_area("Paste your news article here:", height=300)
+article = st.text_area("Paste your news article here:", height=400)
 
 # --- Reading time estimator ---
 if article.strip():
