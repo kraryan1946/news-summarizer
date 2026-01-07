@@ -3,6 +3,7 @@ import base64
 import streamlit as st
 import torch
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from langdetect import detect, LangDetectException
 
 # -------------------- PAGE CONFIG --------------------
 st.set_page_config(
@@ -28,7 +29,6 @@ tokenizer, model = load_model()
 # -------------------- UI --------------------
 st.title("📰 News Article Summarizer")
 st.write("Paste a news article below and get an instant summary.")
-
 st.caption(f"⚙️ Running on **{DEVICE.upper()}**")
 
 # -------------------- SUMMARY LENGTH --------------------
@@ -53,6 +53,24 @@ article = st.text_area(
     placeholder="Paste full news article text here..."
 )
 
+# -------------------- LANGUAGE DETECTION --------------------
+detected_language = None
+is_english = True
+
+if article.strip():
+    try:
+        detected_language = detect(article)
+        if detected_language != "en":
+            is_english = False
+            st.warning(
+                f"⚠️ Detected language: **{detected_language.upper()}**. "
+                "This summarizer works best with **English** text."
+            )
+        else:
+            st.success("✅ Detected language: **English**")
+    except LangDetectException:
+        st.warning("⚠️ Unable to detect language. Please check the input text.")
+
 # -------------------- READING TIME --------------------
 if article.strip():
     word_count = len(article.split())
@@ -69,6 +87,11 @@ if "summary" not in st.session_state:
 if st.button("🚀 Generate Summary"):
     if not article.strip():
         st.warning("Please paste some text.")
+    elif not is_english:
+        st.error(
+            "❌ Summarization aborted. Please provide an **English** article "
+            "for best results."
+        )
     else:
         with st.spinner("Generating summary... ⏳"):
             inputs = tokenizer(
@@ -100,7 +123,6 @@ if st.session_state.summary:
     st.subheader("🧠 Generated Summary")
     st.success(st.session_state.summary)
 
-    # Auto-copy supported by Streamlit UI
     st.code(st.session_state.summary, language="text")
 
     # Download summary
