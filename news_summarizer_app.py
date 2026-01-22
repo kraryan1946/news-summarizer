@@ -9,11 +9,27 @@ from langdetect import detect, LangDetectException
 # -------------------- PAGE CONFIG --------------------
 st.set_page_config(
     page_title="News Summarizer",
+    page_icon="📰",
     layout="centered"
 )
 
-# -------------------- DEVICE DETECTION --------------------
+# -------------------- CUSTOM STYLING --------------------
+st.markdown("""
+<style>
+textarea {
+    border-radius: 12px !important;
+}
+button {
+    border-radius: 10px !important;
+    height: 3em !important;
+}
+.block-container {
+    padding-top: 2rem;
+}
+</style>
+""", unsafe_allow_html=True)
 
+# -------------------- DEVICE --------------------
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # -------------------- MODEL LOADING --------------------
@@ -28,17 +44,27 @@ def load_model():
 
 tokenizer, model = load_model()
 
-# -------------------- UI --------------------
-st.title("📰 News Article Summarizer")
-st.write("Paste a news article below to get an instant summary.")
-st.caption(f"⚙️ Running on **{DEVICE.upper()}**")
+# -------------------- HEADER --------------------
+st.markdown("""
+<h1 style='text-align: center;'>📰 AI News Summarizer</h1>
+<p style='text-align: center; color: gray;'>
+Paste your news article below and generate a clean AI-powered summary instantly.
+</p>
+""", unsafe_allow_html=True)
 
-# -------------------- SUMMARY LENGTH --------------------
-summary_length = st.radio(
-    "Select summary length:",
-    ["Short", "Medium", "Long"],
-    horizontal=True
-)
+st.divider()
+
+# -------------------- SUMMARY CONTROLS --------------------
+col1, col2 = st.columns(2)
+
+with col1:
+    summary_length = st.selectbox(
+        "📏 Summary Length",
+        ["Short", "Medium", "Long"]
+    )
+
+with col2:
+    st.metric("⚙️ Running On", DEVICE.upper())
 
 length_map = {
     "Short": 60,
@@ -48,36 +74,21 @@ length_map = {
 
 st.divider()
 
-# -------------------- TEXT INPUT --------------------
+# -------------------- ARTICLE INPUT --------------------
 article = st.text_area(
-    "Paste your news article here:",
-    height=400,
+    "📄 Paste your news article here:",
+    height=350,
     placeholder="Paste full news article text here..."
 )
 
-# -------------------- LANGUAGE DETECTION --------------------
-detected_language = None
-is_english = True
-
-if article.strip():
-    try:
-        detected_language = detect(article)
-        if detected_language != "en":
-            is_english = False
-            st.warning(
-                f"⚠️ Detected language: **{detected_language.upper()}**. "
-                "This summarizer works best with **English** text."
-            )
-        else:
-            st.success("✅ Detected language: **English**")
-    except LangDetectException:
-        st.warning("⚠️ Unable to detect language. Please check the input text.")
-
-# -------------------- READING TIME --------------------
+# -------------------- TEXT ANALYTICS --------------------
 if article.strip():
     word_count = len(article.split())
-    reading_time = round(word_count / 200, 2)
-    st.info(f"🕒 Estimated reading time: **{reading_time} minutes**")
+    reading_time = round(word_count / 200)
+
+    col1, col2 = st.columns(2)
+    col1.metric("📝 Word Count", word_count)
+    col2.metric("🕒 Reading Time (mins)", reading_time)
 
 st.divider()
 
@@ -85,49 +96,58 @@ st.divider()
 if "summary" not in st.session_state:
     st.session_state.summary = ""
 
-# -------------------- GENERATE SUMMARY --------------------
-if st.button("🚀 Generate Summary"):
+# -------------------- GENERATE BUTTON --------------------
+generate = st.button("🚀 Generate Summary", use_container_width=True)
+
+# -------------------- GENERATION LOGIC --------------------
+if generate:
     if not article.strip():
-        st.warning("Please paste some text.")
-    elif not is_english:
-        st.error(
-            "❌ Summarization aborted. Please provide an **English** article "
-            "for best results."
-        )
+        st.warning("Please paste a news article first.")
     else:
-        with st.spinner("Generating summary... ⏳"):
-            inputs = tokenizer(
-                article,
-                max_length=1024,
-                truncation=True,
-                return_tensors="pt"
-            ).to(DEVICE)
+        try:
+            detected_language = detect(article)
+            if detected_language != "en":
+                st.error("This summarizer currently works best with English text.")
+            else:
+                with st.spinner("Generating summary... ⏳"):
+                    inputs = tokenizer(
+                        article,
+                        max_length=1024,
+                        truncation=True,
+                        return_tensors="pt"
+                    ).to(DEVICE)
 
-            with torch.no_grad():
-                summary_ids = model.generate(
-                    inputs["input_ids"],
-                    max_length=length_map[summary_length],
-                    min_length=40,
-                    num_beams=4,
-                    length_penalty=2.0,
-                    early_stopping=True
-                )
+                    with torch.no_grad():
+                        summary_ids = model.generate(
+                            inputs["input_ids"],
+                            max_length=length_map[summary_length],
+                            min_length=40,
+                            num_beams=4,
+                            length_penalty=2.0,
+                            early_stopping=True
+                        )
 
-            st.session_state.summary = tokenizer.decode(
-                summary_ids[0],
-                skip_special_tokens=True
-            )
+                    st.session_state.summary = tokenizer.decode(
+                        summary_ids[0],
+                        skip_special_tokens=True
+                    )
 
-        time.sleep(0.5)
+                time.sleep(0.3)
 
-# -------------------- OUTPUT --------------------
+        except LangDetectException:
+            st.error("Unable to detect language. Please check your input.")
+
+# -------------------- OUTPUT SECTION --------------------
 if st.session_state.summary:
+
+    st.divider()
+
     st.subheader("🧠 Generated Summary")
-    st.success(st.session_state.summary)
 
-    st.code(st.session_state.summary, language="text")
+    with st.container():
+        st.write(st.session_state.summary)
 
-    # Download summary
+    # Download Option
     b64 = base64.b64encode(st.session_state.summary.encode()).decode()
     st.markdown(
         f'<a href="data:text/plain;base64,{b64}" download="summary.txt">📥 Download Summary</a>',
