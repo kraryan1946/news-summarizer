@@ -4,7 +4,7 @@ import streamlit as st
 import torch
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from langdetect import detect, LangDetectException
-
+from newspaper import Article
 
 # -------------------- PAGE CONFIG --------------------
 st.set_page_config(
@@ -48,7 +48,7 @@ tokenizer, model = load_model()
 st.markdown("""
 <h1 style='text-align: center;'>📰 AI News Summarizer</h1>
 <p style='text-align: center; color: gray;'>
-Paste your news article below and generate a clean AI-powered summary instantly.
+Paste your news article or provide a URL to generate a clean AI-powered summary.
 </p>
 """, unsafe_allow_html=True)
 
@@ -74,12 +74,33 @@ length_map = {
 
 st.divider()
 
-# -------------------- ARTICLE INPUT --------------------
-article = st.text_area(
-    "📄 Paste your news article here:",
+# -------------------- URL INPUT --------------------
+url = st.text_input("🌐 Paste a news article URL (optional):")
+
+article = ""
+
+if url:
+    try:
+        with st.spinner("Fetching article from URL..."):
+            news_article = Article(url)
+            news_article.download()
+            news_article.parse()
+            article = news_article.text
+            st.success("Article fetched successfully!")
+            st.caption(f"**Title:** {news_article.title}")
+    except Exception:
+        st.error("Failed to fetch article. Please check the URL.")
+
+# -------------------- MANUAL ARTICLE INPUT --------------------
+manual_article = st.text_area(
+    "📄 Or paste your news article here:",
     height=350,
     placeholder="Paste full news article text here..."
 )
+
+# If manual text exists, override URL content
+if manual_article.strip():
+    article = manual_article
 
 # -------------------- TEXT ANALYTICS --------------------
 if article.strip():
@@ -102,7 +123,7 @@ generate = st.button("🚀 Generate Summary", use_container_width=True)
 # -------------------- GENERATION LOGIC --------------------
 if generate:
     if not article.strip():
-        st.warning("Please paste a news article first.")
+        st.warning("Please provide a news article or URL first.")
     else:
         try:
             detected_language = detect(article)
@@ -141,13 +162,11 @@ if generate:
 if st.session_state.summary:
 
     st.divider()
-
     st.subheader("🧠 Generated Summary")
 
-    with st.container():
-        st.write(st.session_state.summary)
+    st.write(st.session_state.summary)
 
-    # Download Option in txt mode
+    # Download option
     b64 = base64.b64encode(st.session_state.summary.encode()).decode()
     st.markdown(
         f'<a href="data:text/plain;base64,{b64}" download="summary.txt">📥 Download Summary</a>',
