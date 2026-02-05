@@ -166,7 +166,7 @@ if st.session_state.summary:
 
     st.write(st.session_state.summary)
 
-    # Download option as text only till now
+    # Download option
     b64 = base64.b64encode(st.session_state.summary.encode()).decode()
     st.markdown(
         f'<a href="data:text/plain;base64,{b64}" download="summary.txt">📥 Download Summary</a>',
